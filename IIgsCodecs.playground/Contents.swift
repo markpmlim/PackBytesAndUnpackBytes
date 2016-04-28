@@ -5,8 +5,6 @@ import Foundation
 
 let myBundle = NSBundle.mainBundle()
 var pathToFile = myBundle.pathForResource("CLOWN", ofType:"SHR")
-let comps = ["/Users", "marklim", "documents"]
-let nsstr = NSString.pathWithComponents(comps)
 if let fileData = NSData(contentsOfFile: pathToFile!)
 {
 	let fileLength = fileData.length
