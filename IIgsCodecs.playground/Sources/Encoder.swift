@@ -9,7 +9,7 @@ public class IIgsCodecs
 	{
 	}
 
-	// Credits: tohgr
+	// Credits: Mario Patino
 	// http://wsxyz.net/tohgr.html
 	// The parameter srcBuf is an array of bytes; it can be from an entire file.
 	public func packBytes(srcBuf: [UInt8]) ->[UInt8]
