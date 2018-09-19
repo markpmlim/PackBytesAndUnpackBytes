@@ -3,7 +3,7 @@ Apple IIGS Toolbox Reference, Volume 1
 Tech note FTN.C0.0001, FTN.C1.0000
 Tech note IIGS #94
 */
-public class IIgsCodecs
+open class IIgsCodecs
 {
 	public init()
 	{
@@ -12,7 +12,7 @@ public class IIgsCodecs
 	// Credits: Mario Patino
 	// http://wsxyz.net/tohgr.html
 	// The parameter srcBuf is an array of bytes; it can be from an entire file.
-	public func packBytes(srcBuf: [UInt8]) ->[UInt8]
+	open func packBytes(_ srcBuf: [UInt8]) ->[UInt8]
 	{
 		let kThreshold = 2
 		var packedData = [UInt8]()
@@ -21,10 +21,10 @@ public class IIgsCodecs
 		var bytesLeft = srcBuf.count
 
 		// use the min size for the run length encoding buffer (IIgs tech note #94)
-		var rleBuf = [UInt8](count:65, repeatedValue:0)
+		var rleBuf = [UInt8](repeating: 0, count: 65)
 		var rIndex = 0
 
-		func captureSingletons(number: Int)
+		func captureSingletons(_ number: Int)
 		{
 			var count = number
 			while count > 0
@@ -37,13 +37,16 @@ public class IIgsCodecs
 				rIndex = 0
 				count -= k
 				// flag byte (flag bits = %00)
-				rleBuf[rIndex++] = UInt8(k - 1)
+				rleBuf[rIndex] = UInt8(k - 1)
+                rIndex += 1
 				while k > 0
 				{
-					rleBuf[rIndex++] = srcBuf[bufIndex++]
-					--k
+					rleBuf[rIndex] = srcBuf[bufIndex]
+                    rIndex += 1
+                    bufIndex += 1
+					k -= 1
 				}
-				packedData.appendContentsOf(rleBuf[0..<rIndex])
+				packedData.append(contentsOf: rleBuf[0..<rIndex])
 			}
 			
 		}
@@ -52,11 +55,14 @@ public class IIgsCodecs
 		{
 			var tmpIndex = currIndex
 			var tmpCount = bytesLeft
-			let currByte = srcBuf[tmpIndex++]
+			let currByte = srcBuf[tmpIndex]
+            tmpIndex += 1
 			// Loop to check if the byte is repeated
-			while --tmpCount != 0 && currByte == srcBuf[tmpIndex]
+            tmpCount -= 1   // problem?
+			while tmpCount != 0 && currByte == srcBuf[tmpIndex]
 			{
-				++tmpIndex
+				tmpIndex += 1
+                tmpCount -= 1
 			}
 
 			var repeatCount = tmpIndex - currIndex
@@ -70,8 +76,10 @@ public class IIgsCodecs
 				{
 					// case 1: 3,5,6,7 identical bytes in a row
 					//print("RepeatNextByte 3,5,6,7 times")
-					rleBuf[rIndex++] = 0x40 | UInt8(repeatCount - 1)
-					rleBuf[rIndex++] = currByte
+					rleBuf[rIndex] = 0x40 | UInt8(repeatCount - 1)
+                    rIndex += 1
+					rleBuf[rIndex] = currByte
+                    rIndex += 1
 					bytesLeft -= repeatCount
 					currIndex += repeatCount
 				}
@@ -86,12 +94,14 @@ public class IIgsCodecs
 					}
 
 					// flag byte (flag bits = %11)
-					rleBuf[rIndex++] = 0xC0 | UInt8(repeatCount - 1)
-					rleBuf[rIndex++] = currByte				// byte that is repeated
+					rleBuf[rIndex] = 0xC0 | UInt8(repeatCount - 1)
+                    rIndex += 1
+					rleBuf[rIndex] = currByte				// byte that is repeated
+                    rIndex += 1
 					bytesLeft -= (repeatCount * 4)
 					currIndex += (repeatCount * 4)
 				}
-				packedData.appendContentsOf(rleBuf[0..<rIndex])
+				packedData.append(contentsOf: rleBuf[0..<rIndex])
 				bufIndex = currIndex
 				continue
 			} // above threshold
@@ -108,9 +118,9 @@ public class IIgsCodecs
 				// Looking for a repeating set of 4 different bytes starting 4 byte positions away
 				while tmpCount != 0 && srcBuf[tmpIndex] == srcBuf[repeatIndex]
 				{
-					++tmpIndex
-					++repeatIndex
-					--tmpCount
+					tmpIndex += 1
+					repeatIndex += 1
+					tmpCount -= 1
 				}
 
 				repeatCount = tmpIndex - currIndex
@@ -126,21 +136,26 @@ public class IIgsCodecs
 						repeatCount = 64
 					}
 					//print("RepeatNext4Bytes")
-					rleBuf[rIndex++] = 0x80 | (UInt8(repeatCount - 1))
-					rleBuf[rIndex++] = srcBuf[currIndex+0]
-					rleBuf[rIndex++] = srcBuf[currIndex+1]
-					rleBuf[rIndex++] = srcBuf[currIndex+2]
-					rleBuf[rIndex++] = srcBuf[currIndex+3]
+					rleBuf[rIndex] = 0x80 | (UInt8(repeatCount - 1))
+                    rIndex += 1
+					rleBuf[rIndex] = srcBuf[currIndex+0]
+                    rIndex += 1
+					rleBuf[rIndex] = srcBuf[currIndex+1]
+                    rIndex += 1
+					rleBuf[rIndex] = srcBuf[currIndex+2]
+                    rIndex += 1
+					rleBuf[rIndex] = srcBuf[currIndex+3]
+                    rIndex += 1
 					bytesLeft -= (repeatCount * 4)
 					currIndex += (repeatCount * 4)
 					bufIndex = currIndex
-					packedData.appendContentsOf(rleBuf[0..<rIndex])
+					packedData.append(contentsOf: rleBuf[0..<rIndex])
 					continue
 				}
 			}
 
-			++currIndex
-			--bytesLeft
+			currIndex += 1
+			bytesLeft -= 1
 		}
 
 		// capture the stragglers which are singletons
@@ -152,11 +167,11 @@ public class IIgsCodecs
 	//http://www.fadden.com/techmisc/hdc/lesson02.htm
 	//http://kpreid.livejournal.com/4319.htm
 	// The parameter packedData is the array of bytes encoded by the packBytes method
-	public func unpackBytes(packedData:[UInt8]) -> [UInt8]
+	open func unpackBytes(_ packedData:[UInt8]) -> [UInt8]
 	{
 		enum PackedFormat : UInt8
 		{
-			case AllDifferent = 0, RepeatNextByte, RepeatNext4Bytes, Repeat4ofNextByte
+			case allDifferent = 0, repeatNextByte, repeatNext4Bytes, repeat4ofNextByte
 		}
 
 		var unpackedData = [UInt8]()
@@ -165,53 +180,61 @@ public class IIgsCodecs
 		//println("\(packedData)")
 		while (srcLen > 0)
 		{
-			let flag = packedData[index++]
+			let flag = packedData[index]
+            index += 1
 			let type = (flag & 0xc0) >> 6
 			
 			let count = (flag & 0x3f) + 1
 			var rldBuf = [UInt8]()				// Run Len Decoder buffer
-			--srcLen
+			srcLen -= 1
 			if let whichFormat = PackedFormat(rawValue:type)
 			{
 				switch(whichFormat)
 				{
-				case .AllDifferent:
+				case .allDifferent:
 					//print("AllDifferent")
-					for var i = 0; i < Int(count); ++i
+					for i in 0..<Int(count)
 					{
-						rldBuf.append(packedData[index++])
-						--srcLen
+						rldBuf.append(packedData[index])
+                        index += 1
+						srcLen -= 1
 					}
-				case .RepeatNextByte:
+				case .repeatNextByte:
 					//print("RepeatNextByte")
-					let repeatedVal = packedData[index++]
-					--srcLen
-					for var i = 0; i < Int(count); ++i
+					let repeatedVal = packedData[index]
+                    index += 1
+					srcLen -= 1
+					for i in 0..<Int(count)
 					{
 						rldBuf.append(repeatedVal)
 					}
-				case .RepeatNext4Bytes:
+				case .repeatNext4Bytes:
 					//print("RepeatNext4Bytes")
 					srcLen -= 4
-					var fourBytes = [UInt8](count:4, repeatedValue:0)
-					fourBytes[0] = packedData[index++]
-					fourBytes[1] = packedData[index++]
-					fourBytes[2] = packedData[index++]
-					fourBytes[3] = packedData[index++]
-					for var i = 0; i < Int(count); ++i
+					var fourBytes = [UInt8](repeating: 0, count: 4)
+					fourBytes[0] = packedData[index]
+                    index += 1
+					fourBytes[1] = packedData[index]
+                    index += 1
+					fourBytes[2] = packedData[index]
+                    index += 1
+					fourBytes[3] = packedData[index]
+                    index += 1
+					for i in 0..<Int(count)
 					{
 						rldBuf += fourBytes
 					}
-				case .Repeat4ofNextByte:
+				case .repeat4ofNextByte:
 					//print("Repeat4ofNextByte")
-					let repeatedVal = packedData[index++]
-					--srcLen
-					var fourBytes = [UInt8](count:4, repeatedValue:0)
+					let repeatedVal = packedData[index]
+                    index += 1
+					srcLen -= 1
+					var fourBytes = [UInt8](repeating: 0, count: 4)
 					fourBytes[0] = repeatedVal
 					fourBytes[1] = repeatedVal
 					fourBytes[2] = repeatedVal
 					fourBytes[3] = repeatedVal
-					for var i = 0; i < Int(count); ++i
+					for i in 0..<Int(count)
 					{
 						rldBuf += fourBytes
 					}
